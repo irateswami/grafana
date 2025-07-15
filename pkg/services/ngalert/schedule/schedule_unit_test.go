@@ -470,9 +470,9 @@ func TestProcessTicks(t *testing.T) {
 	})
 
 	// Convert an alerting rule to a recording rule.
-	models.ConvertToRecordingRule(alertRule3)
-	alertRule3.Version++
-	ruleStore.PutRule(ctx, alertRule3)
+	convertedRule := models.ConvertToRecordingRule(alertRule3)
+	convertedRule.Version++
+	ruleStore.PutRule(ctx, convertedRule)
 
 	t.Run("prior to 15th tick alertRule3 should still be scheduled as alerting rule", func(t *testing.T) {
 		require.Equal(t, models.RuleTypeAlerting, sched.registry.rules[alertRule3.GetKey()].Type())

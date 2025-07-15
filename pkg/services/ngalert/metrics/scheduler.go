@@ -33,6 +33,17 @@ type Scheduler struct {
 	EvaluationMissed                    *prometheus.CounterVec
 	SimplifiedEditorRules               *prometheus.GaugeVec
 	PrometheusImportedRules             *prometheus.GaugeVec
+	
+	// Per-organization concurrency metrics
+	EvaluationSkipped                   *prometheus.CounterVec
+	ConcurrencyLimitUtilization         *prometheus.GaugeVec
+	ActiveEvaluationsPerOrg             *prometheus.GaugeVec
+	GlobalConcurrencyUtilization        prometheus.Gauge
+	
+	// Starvation detection metrics
+	StarvationDetected                  *prometheus.CounterVec
+	LastEvaluationAge                   *prometheus.GaugeVec
+	StarvationDuration                  *prometheus.GaugeVec
 }
 
 func NewSchedulerMetrics(r prometheus.Registerer) *Scheduler {
@@ -199,6 +210,76 @@ func NewSchedulerMetrics(r prometheus.Registerer) *Scheduler {
 				Subsystem: Subsystem,
 				Name:      "prometheus_imported_rules",
 				Help:      "The number of rules imported from a Prometheus-compatible source.",
+			},
+			[]string{"org"},
+		),
+		
+		// Per-organization concurrency metrics
+		EvaluationSkipped: promauto.With(r).NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: Subsystem,
+				Name:      "evaluation_skipped_total",
+				Help:      "The total number of evaluations skipped due to concurrency limits.",
+			},
+			[]string{"org", "rule", "reason"},
+		),
+		
+		ConcurrencyLimitUtilization: promauto.With(r).NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: Subsystem,
+				Name:      "concurrency_limit_utilization",
+				Help:      "Current utilization of concurrency limits.",
+			},
+			[]string{"org", "type"}, // type: "global" or "per_org"
+		),
+		
+		ActiveEvaluationsPerOrg: promauto.With(r).NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: Subsystem,
+				Name:      "active_evaluations_per_org",
+				Help:      "Number of active evaluations per organization.",
+			},
+			[]string{"org"},
+		),
+		
+		GlobalConcurrencyUtilization: promauto.With(r).NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: Subsystem,
+				Name:      "global_concurrency_utilization",
+				Help:      "Global concurrency utilization.",
+			}),
+		
+		// Starvation detection metrics
+		StarvationDetected: promauto.With(r).NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: Subsystem,
+				Name:      "starvation_detected_total",
+				Help:      "Total number of starvation events detected per organization.",
+			},
+			[]string{"org"},
+		),
+		
+		LastEvaluationAge: promauto.With(r).NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: Subsystem,
+				Name:      "last_evaluation_age_seconds",
+				Help:      "Time since last evaluation per organization.",
+			},
+			[]string{"org"},
+		),
+		
+		StarvationDuration: promauto.With(r).NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: Subsystem,
+				Name:      "starvation_duration_seconds",
+				Help:      "Duration of current starvation event per organization.",
 			},
 			[]string{"org"},
 		),

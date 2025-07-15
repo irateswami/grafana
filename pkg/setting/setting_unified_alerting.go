@@ -23,6 +23,14 @@ const (
 	alertmanagerDefaultPushPullInterval   = alertingCluster.DefaultPushPullInterval
 	alertmanagerDefaultConfigPollInterval = time.Minute
 	alertmanagerRedisDefaultMaxConns      = 5
+	// Semaphore configuration constants
+	schedulerDefaultMaxEvaluationConcurrency       = 50
+	schedulerDefaultMaxEvaluationConcurrencyPerOrg = 10
+	schedulerDefaultEnablePerOrgEvaluationLimits   = true
+	// Phase 3: Starvation detection constants
+	schedulerDefaultStarvationThreshold         = 5 * time.Minute
+	schedulerDefaultStarvationCheckInterval     = 30 * time.Second
+	schedulerDefaultEnableStarvationDetection   = true
 	// To start, the alertmanager needs at least one route defined.
 	// TODO: we should move this to Grafana settings and define this as the default.
 	alertmanagerDefaultConfiguration = `{
@@ -118,6 +126,20 @@ type UnifiedAlertingSettings struct {
 	StatePeriodicSaveInterval  time.Duration
 	StatePeriodicSaveBatchSize int
 	RulesPerRuleGroupLimit     int64
+
+	// MaxEvaluationConcurrency limits concurrent alert evaluations globally
+	MaxEvaluationConcurrency int
+	
+	// MaxEvaluationConcurrencyPerOrg limits concurrent evaluations per organization
+	MaxEvaluationConcurrencyPerOrg int
+	
+	// EnablePerOrgEvaluationLimits enables per-organization concurrency control
+	EnablePerOrgEvaluationLimits bool
+
+	// Phase 3: Starvation detection configuration
+	StarvationThreshold        time.Duration
+	StarvationCheckInterval    time.Duration
+	EnableStarvationDetection  bool
 
 	// Retention period for Alertmanager notification log entries.
 	NotificationLogRetention time.Duration
@@ -478,6 +500,39 @@ func (cfg *Cfg) ReadUnifiedAlertingSettings(iniFile *ini.File) error {
 	if uaCfg.RuleVersionRecordLimit < 0 {
 		return fmt.Errorf("setting 'rule_version_record_limit' is invalid, only 0 or a positive integer are allowed")
 	}
+
+	// Per-organization semaphore configuration
+	uaCfg.MaxEvaluationConcurrency = ua.Key("max_evaluation_concurrency").MustInt(schedulerDefaultMaxEvaluationConcurrency)
+	if uaCfg.MaxEvaluationConcurrency < 1 {
+		return fmt.Errorf("setting 'max_evaluation_concurrency' must be greater than 0")
+	}
+
+	uaCfg.MaxEvaluationConcurrencyPerOrg = ua.Key("max_evaluation_concurrency_per_org").MustInt(schedulerDefaultMaxEvaluationConcurrencyPerOrg)
+	if uaCfg.MaxEvaluationConcurrencyPerOrg < 1 {
+		return fmt.Errorf("setting 'max_evaluation_concurrency_per_org' must be greater than 0")
+	}
+
+	uaCfg.EnablePerOrgEvaluationLimits = ua.Key("enable_per_org_evaluation_limits").MustBool(schedulerDefaultEnablePerOrgEvaluationLimits)
+
+	// Phase 3: Starvation detection configuration
+	starvationThreshold, err := gtime.ParseDuration(ua.Key("starvation_threshold").MustString(schedulerDefaultStarvationThreshold.String()))
+	if err != nil {
+		return fmt.Errorf("invalid setting 'starvation_threshold': %w", err)
+	}
+	uaCfg.StarvationThreshold = starvationThreshold
+	if uaCfg.StarvationThreshold < time.Minute {
+		return fmt.Errorf("setting 'starvation_threshold' must be at least 1 minute")
+	}
+	
+	starvationCheckInterval, err := gtime.ParseDuration(ua.Key("starvation_check_interval").MustString(schedulerDefaultStarvationCheckInterval.String()))
+	if err != nil {
+		return fmt.Errorf("invalid setting 'starvation_check_interval': %w", err)
+	}
+	uaCfg.StarvationCheckInterval = starvationCheckInterval
+	if uaCfg.StarvationCheckInterval < 10*time.Second {
+		return fmt.Errorf("setting 'starvation_check_interval' must be at least 10 seconds")
+	}
+	uaCfg.EnableStarvationDetection = ua.Key("enable_starvation_detection").MustBool(schedulerDefaultEnableStarvationDetection)
 
 	cfg.UnifiedAlerting = uaCfg
 	return nil

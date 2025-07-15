@@ -396,6 +396,17 @@ func (ng *AlertNG) init() error {
 		Tracer:               ng.tracer,
 		Log:                  log.New("ngalert.scheduler"),
 		RecordingWriter:      ng.RecordingWriter,
+		
+		// Semaphore configuration for concurrency control
+		MaxEvaluationConcurrency:       ng.Cfg.UnifiedAlerting.MaxEvaluationConcurrency,
+		MaxEvaluationConcurrencyPerOrg: ng.Cfg.UnifiedAlerting.MaxEvaluationConcurrencyPerOrg,
+		EnablePerOrgEvaluationLimits:   ng.Cfg.UnifiedAlerting.EnablePerOrgEvaluationLimits,
+		EvaluationTimeout:              ng.Cfg.UnifiedAlerting.EvaluationTimeout,
+
+		// Phase 3: Starvation detection configuration
+		StarvationThreshold:            ng.Cfg.UnifiedAlerting.StarvationThreshold,
+		StarvationCheckInterval:        ng.Cfg.UnifiedAlerting.StarvationCheckInterval,
+		EnableStarvationDetection:      ng.Cfg.UnifiedAlerting.EnableStarvationDetection,
 	}
 
 	// There are a set of feature toggles available that act as short-circuits for common configurations.

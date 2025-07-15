@@ -1328,7 +1328,7 @@ func randomMapKey[K comparable, V any](m map[K]V) (K, V) {
 	return *new(K), *new(V)
 }
 
-func ConvertToRecordingRule(rule *AlertRule) {
+func ConvertToRecordingRule(rule *AlertRule) *AlertRule {
 	if rule.Record == nil {
 		rule.Record = &Record{}
 	}
@@ -1343,6 +1343,8 @@ func ConvertToRecordingRule(rule *AlertRule) {
 	rule.ExecErrState = ""
 	rule.For = 0
 	rule.NotificationSettings = nil
+	
+	return rule
 }
 
 func nameToUid(name string) string { // Avoid legacy_storage.NameToUid import cycle.
